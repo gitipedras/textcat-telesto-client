@@ -1,40 +1,148 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, BrowserView } = require('electron');
 const path = require('path');
 
-const menuTemplate = [
-  {
-    label: "File",
-    submenu: [
-      { role: "quit" }
-    ]
-  },
+let profileViews = {};
+let activeProfile = null;
 
-  {
-    label: "Help",
-    submenu: [
-      {
-        label: "Docs/Help",
-        click: () => {
-          require("electron").shell.openExternal("https://github.com/gitipedras/textcat");
-        }
-      },
-      {
-        label: "About",
-        click: () => {
-          const aboutWin = new BrowserWindow({
-            width: 600,
-            height: 500,
-            title: "About"
-          });
-          const html = `<h2><i class="bi bi-chat-dots-fill"></i> Opensource Messaging Platform</h2><p><strong>Textcat</strong> is built using <a href="https://go.dev/" target="_blank"><i class="bi bi-cpu-fill"></i> <b>Golang</b></a> on the server side, providing performance, reliability, and simplicity.</p><h2><i class="bi bi-code-slash"></i> Custom Clients</h2><p>You can create your own custom clients using <i class="bi bi-filetype-js"></i> JavaScript, <i class="bi bi-filetype-lua"></i> Lua, <i class="bi bi-filetype-py"></i> Python, or any other language you prefer. Textcat provides a simple and open protocol that makes it easy to integrate and extend.</p><h2><i class="bi bi-github"></i> Star us on GitHub</h2><p>We’d love your support! Check out the official client branch on GitHub: <a href="https://github.com/gitipedras/textcat/tree/client" target="_blank"><i class="bi bi-github"></i> GitHub (official client branch)</a></p><h2><i class="bi bi-people-fill"></i> Contribute & Join the Community</h2><p>Textcat is open source and community-driven. Contributions, ideas, and feedback are always welcome! Join us to make messaging more open and customizable for everyone.</p>
-`
-          aboutWin.loadURL("data:text/html,<p>About Textcat</p><br>" + html);
-        }
-      }
-    ]
+/* -------------------------
+   PROFILE VIEW MANAGEMENT
+--------------------------*/
+
+function createProfileView(win, profileName) {
+  const view = new BrowserView({
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    }
+  });
+
+  profileViews[profileName] = view;
+
+  // Remove existing view before attaching a new one
+  if (activeProfile && profileViews[activeProfile]) {
+    win.removeBrowserView(profileViews[activeProfile]);
   }
-];
 
+  win.setBrowserView(view);
+
+  const [width, height] = win.getSize();
+  view.setBounds({ x: 0, y: 0, width, height });
+  view.setAutoResize({ width: true, height: true });
+
+  view.webContents.loadFile('src/index.html', {
+    query: { profile: profileName }
+  });
+
+  activeProfile = profileName;
+  rebuildMenu(win);
+}
+
+
+function switchProfile(win, profileName) {
+  const view = profileViews[profileName];
+  if (!view) return;
+
+  // Remove currently active view
+  if (activeProfile && profileViews[activeProfile]) {
+    win.removeBrowserView(profileViews[activeProfile]);
+  }
+
+  // Attach the new one
+  win.setBrowserView(view);
+
+  const [width, height] = win.getSize();
+  view.setBounds({ x: 0, y: 0, width, height });
+  view.setAutoResize({ width: true, height: true });
+
+  activeProfile = profileName;
+  rebuildMenu(win);
+}
+
+
+/* -------------------------
+       DYNAMIC MENUS
+--------------------------*/
+
+function buildProfilesSubmenu(win) {
+  const submenu = [];
+
+  submenu.push({
+    label: "New Profile",
+    click: () => {
+      const name = "Profile_" + (Object.keys(profileViews).length + 1);
+      createProfileView(win, name);
+    }
+  });
+
+  submenu.push({ type: "separator" });
+
+  const names = Object.keys(profileViews);
+
+  if (names.length === 0) {
+    submenu.push({ label: "(No profiles)", enabled: false });
+  } else {
+    names.forEach(name => {
+      submenu.push({
+        label: name + (name === activeProfile ? " ✔" : ""),
+        click: () => switchProfile(win, name)
+      });
+    });
+  }
+
+  return submenu;
+}
+
+function rebuildMenu(win) {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: "File",
+      submenu: [
+        { role: "quit" }
+      ]
+    },
+
+    {
+      label: "Profiles",
+      submenu: buildProfilesSubmenu(win)
+    },
+
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "Docs/Help",
+          click: () => {
+            require("electron").shell.openExternal("https://github.com/gitipedras/textcat");
+          }
+        },
+        {
+          label: "About",
+          click: () => {
+            const aboutWin = new BrowserWindow({
+              width: 600,
+              height: 500,
+              title: "About"
+            });
+
+            const html = `<p>Telesto client is an official textcat client made using javascript and electron</p> 
+            <br><br> 
+            <p>Source code: github.com/gitipedras/textcat-telesto-client</p>
+            <br>
+            <p>Named after the Saturn moon 'Telesto'</p>`;
+
+            aboutWin.loadURL("data:text/html,<p>About Telesto</p><br>" + html);
+          }
+        }
+      ]
+    }
+  ]);
+
+  Menu.setApplicationMenu(menu);
+}
+
+/* -------------------------
+      MAIN WINDOW
+--------------------------*/
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -46,21 +154,27 @@ function createWindow() {
     transparent: false,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false, // needed if your client.js uses Node features
+      contextIsolation: false,
     },
   });
 
-  win.loadFile('src/index.html');
+  createProfileView(win, "Profile_1");
+  return win;
 }
 
-app.whenReady().then(() => {
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu)
+/* -------------------------
+         APP LOGIC
+--------------------------*/
 
-  createWindow();
+app.whenReady().then(() => {
+  const win = createWindow();
+  rebuildMenu(win);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const newWin = createWindow();
+      rebuildMenu(newWin);
+    }
   });
 });
 

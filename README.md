@@ -9,6 +9,16 @@ Install electron (for running from source)
 To build into binaries, use:
 `npm install electron-builder --save-dev`
 
+**Linux Electron Error**
+if you get the error:
+```
+The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /home/superllamma/Projects/textcat/textcat-telesto/node_modules/electron/dist/chrome-sandbox is owned by root and has mode 4755.
+```
+
+you need to run:
+`npm run patch` (for run.sh)
+`./linux-patch.sh` (for running the built binary in dist/linux-unpacked)
+
 ### Versioning System
 `MAJOR.MINOR.PATCH`
 
@@ -24,4 +34,4 @@ Examples:
 10.2.1-SNAPSHOT
 ```
 
-Read [Semver.og](https://semver.org/) to learn more...
+Read [semver.og](https://semver.org/) to learn more...

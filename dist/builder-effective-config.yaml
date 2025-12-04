@@ -1,0 +1,12 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.github.gitipedras.textcat
+linux:
+  target:
+    - AppImage
+  category: Utility
+files:
+  - filter:
+      - '**/*'
+electronVersion: 39.2.4

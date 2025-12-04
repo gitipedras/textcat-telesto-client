@@ -1,0 +1,29 @@
+{
+  "name": "textcat-legacy",
+  "version": "1.0.0",
+  "main": "main.js",
+  "build": {
+    "appId": "com.github.gitipedras.textcat",
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility"
+    },
+    "files": [
+      "**/*"
+    ]
+  },
+
+  "scripts": {
+    "run": "npx electron .",
+    "patch": "sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox",
+    "build": "npx electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12"
+  }
+}

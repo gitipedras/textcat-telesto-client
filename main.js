@@ -67,9 +67,9 @@ function buildProfilesSubmenu(win) {
   const submenu = [];
 
   submenu.push({
-    label: "New Profile",
+    label: "Add Server",
     click: () => {
-      const name = "Profile_" + (Object.keys(profileViews).length + 1);
+      const name = "Server_" + (Object.keys(profileViews).length + 1);
       createProfileView(win, name);
     }
   });
@@ -79,7 +79,7 @@ function buildProfilesSubmenu(win) {
   const names = Object.keys(profileViews);
 
   if (names.length === 0) {
-    submenu.push({ label: "(No profiles)", enabled: false });
+    submenu.push({ label: "(No servers)", enabled: false });
   } else {
     names.forEach(name => {
       submenu.push({
@@ -95,14 +95,14 @@ function buildProfilesSubmenu(win) {
 function rebuildMenu(win) {
   const menu = Menu.buildFromTemplate([
     {
-      label: "File",
+      label: "Telesto",
       submenu: [
         { role: "quit" }
       ]
     },
 
     {
-      label: "Profiles",
+      label: "Servers",
       submenu: buildProfilesSubmenu(win)
     },
 
@@ -158,7 +158,7 @@ function createWindow() {
     },
   });
 
-  createProfileView(win, "Profile_1");
+  createProfileView(win, "Default_Server");
   return win;
 }
 

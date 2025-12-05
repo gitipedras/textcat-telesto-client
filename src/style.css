@@ -193,7 +193,7 @@ input {
 
   /* Chat input fixed bar */
   #chatInputBar {
-  position: fixed;
+  position: auto;
   bottom: 0;
   left: 250px; /* sidebar width */
   right: 0;

@@ -3,15 +3,32 @@
   "version": "1.0.1",
   "main": "main.js",
   "build": {
-    "appId": "com.github.gitipedras.textcat",
-    "linux": {
-      "target": ["AppImage"],
-      "category": "Utility"
-    },
-    "files": [
-      "**/*"
+  "appId": "com.github.gitipedras.textcat",
+
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "category": "Utility"
+  },
+
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64", "arm64"]
+      }
     ]
   },
+
+  "files": [
+    "**/*"
+  ]
+},
+
 
   "scripts": {
     "run": "npx electron .",

@@ -4,8 +4,17 @@ directories:
 appId: com.github.gitipedras.textcat
 linux:
   target:
-    - AppImage
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
   category: Utility
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
 files:
   - filter:
       - '**/*'

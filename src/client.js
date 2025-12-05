@@ -6,23 +6,24 @@ serverInput.value = defaultServer;
 document.body.style.cursor = `url(${base64Cursor}) 0 0, auto`;
 
 /* gui */
-let logingui = document.getElementById("logingui")
-let settingsui = document.getElementById("settingsPage")
-let msgui = document.getElementById("maingui")
-let userbox = document.getElementById("userBox")
-let chatbar = document.getElementById("chatInputBar")
+/* gui */
+let logingui = document.getElementById("logingui");
+let settingsui = document.getElementById("settingsPage");
+let maingui = document.getElementById("maingui");
+let userBox = document.getElementById("userBox");
+let sidebar = document.getElementById("sidebar");
+let chatInputBar = document.getElementById("chatInputBar");
 
 /* =================== GUI ======================= */
 /* ----------------------------------------------- */
 
-/* default gui states */
-logingui.style.display = "block"
-maingui.style.display = "none"
-sidebar.style.display = "none"
-settingsui.style.display = "none"
-msgui.style.display = "none"
-chatbar.style.display = "none"
-userbox.style.display = "none"
+/* default gui states (guarded) */
+if (logingui) logingui.style.display = "block";
+if (maingui) maingui.style.display = "none";
+if (sidebar) sidebar.style.display = "none";
+if (settingsui) settingsui.style.display = "none";
+if (chatInputBar) chatInputBar.style.display = "none";
+if (userBox) userBox.style.display = "none";
 
 function guiTransition() {
     if (logingui.style.display === 'block' || logingui.style.display === '') {

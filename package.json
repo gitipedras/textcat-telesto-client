@@ -34,7 +34,7 @@
   "scripts": {
     "run": "npx electron .",
     "patch": "sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox",
-    "build": "npx electron-builder"
+    "build": "npx electron-builder --publish never"
   },
   "keywords": [],
   "author": "",

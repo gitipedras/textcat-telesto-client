@@ -1,9 +1,10 @@
 {
   "name": "textcat-telesto",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "main.js",
   "build": {
   "appId": "com.github.gitipedras.textcat",
+  "icon": "src/icons/icon.png",
 
   "linux": {
     "target": [

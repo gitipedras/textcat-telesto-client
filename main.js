@@ -1,143 +1,94 @@
-const { app, BrowserWindow, Menu, BrowserView } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
-
-let profileViews = {};
-let activeProfile = null;
-
-/* -------------------------
-   PROFILE VIEW MANAGEMENT
---------------------------*/
-
-function createProfileView(win, profileName) {
-  const view = new BrowserView({
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  });
-
-  profileViews[profileName] = view;
-
-  // Remove existing view before attaching a new one
-  if (activeProfile && profileViews[activeProfile]) {
-    win.removeBrowserView(profileViews[activeProfile]);
-  }
-
-  win.setBrowserView(view);
-
-  const [width, height] = win.getSize();
-  view.setBounds({ x: 0, y: 0, width, height });
-  view.setAutoResize({ width: true, height: true });
-
-  view.webContents.loadFile('src/index.html', {
-    query: { profile: profileName }
-  });
-
-  activeProfile = profileName;
-  rebuildMenu(win);
-}
-
-
-function switchProfile(win, profileName) {
-  const view = profileViews[profileName];
-  if (!view) return;
-
-  // Remove currently active view
-  if (activeProfile && profileViews[activeProfile]) {
-    win.removeBrowserView(profileViews[activeProfile]);
-  }
-
-  // Attach the new one
-  win.setBrowserView(view);
-
-  const [width, height] = win.getSize();
-  view.setBounds({ x: 0, y: 0, width, height });
-  view.setAutoResize({ width: true, height: true });
-
-  activeProfile = profileName;
-  rebuildMenu(win);
-}
-
 
 /* -------------------------
        DYNAMIC MENUS
 --------------------------*/
 
-function buildProfilesSubmenu(win) {
-  const submenu = [];
+let profiles = ['Default_Server'];
+let activeProfile = 'Default_Server';
+let win = null;
 
-  submenu.push({
-    label: "Add Server",
-    click: () => {
-      const name = "Server_" + (Object.keys(profileViews).length + 1);
-      createProfileView(win, name);
-    }
-  });
+function buildProfilesSubmenu() {
+    const submenu = [];
 
-  submenu.push({ type: "separator" });
-
-  const names = Object.keys(profileViews);
-
-  if (names.length === 0) {
-    submenu.push({ label: "(No servers)", enabled: false });
-  } else {
-    names.forEach(name => {
-      submenu.push({
-        label: name + (name === activeProfile ? " ✔" : ""),
-        click: () => switchProfile(win, name)
-      });
+    submenu.push({
+        label: "Add Server",
+        click: () => {
+            const name = "Server_" + (profiles.length + 1);
+            profiles.push(name);
+            activeProfile = name;
+            rebuildMenu();
+            win.webContents.send('profile-changed', name);
+        }
     });
-  }
 
-  return submenu;
+    submenu.push({ type: "separator" });
+
+    if (profiles.length === 0) {
+        submenu.push({ label: "(No servers)", enabled: false });
+    } else {
+        profiles.forEach(name => {
+            submenu.push({
+                label: name + (name === activeProfile ? " ✔" : ""),
+                click: () => {
+                    activeProfile = name;
+                    rebuildMenu();
+                    win.webContents.send('profile-changed', name);
+                }
+            });
+        });
+    }
+
+    return submenu;
 }
 
-function rebuildMenu(win) {
-  const menu = Menu.buildFromTemplate([
-    {
-      label: "Telesto",
-      submenu: [
-        { role: "quit" }
-      ]
-    },
-
-    {
-      label: "Servers",
-      submenu: buildProfilesSubmenu(win)
-    },
-
-    {
-      label: "Help",
-      submenu: [
+function rebuildMenu() {
+    const menu = Menu.buildFromTemplate([
         {
-          label: "Docs/Help",
-          click: () => {
-            require("electron").shell.openExternal("https://github.com/gitipedras/textcat");
-          }
+            label: "Telesto",
+            submenu: [
+                { role: "quit" }
+            ]
         },
+
         {
-          label: "About",
-          click: () => {
-            const aboutWin = new BrowserWindow({
-              width: 600,
-              height: 500,
-              title: "About"
-            });
+            label: "Servers",
+            submenu: buildProfilesSubmenu()
+        },
 
-            const html = `<p>Telesto client is an official textcat client made using javascript and electron</p> 
-            <br><br> 
-            <p>Source code: github.com/gitipedras/textcat-telesto-client</p>
-            <br>
-            <p>Named after the Saturn moon 'Telesto'</p>`;
+        {
+            label: "Help",
+            submenu: [
+                {
+                    label: "Docs/Help",
+                    click: () => {
+                        require("electron").shell.openExternal("https://github.com/gitipedras/textcat");
+                    }
+                },
+                {
+                    label: "About",
+                    click: () => {
+                        const aboutWin = new BrowserWindow({
+                            width: 600,
+                            height: 500,
+                            title: "About"
+                        });
 
-            aboutWin.loadURL("data:text/html,<p>About Telesto</p><br>" + html);
-          }
+                        const html = `<p>Telesto client is an official textcat client made using javascript and electron</p> 
+                        <br><br> 
+                        <p>Source code: github.com/gitipedras/textcat-telesto-client</p>
+                        <br>
+                        <p>Named after the Saturn moon 'Telesto'</p>`;
+
+                        aboutWin.loadURL("data:text/html,<p>About Telesto</p><br>" + html);
+                    }
+                }
+            ]
         }
-      ]
-    }
-  ]);
+    ]);
 
-  Menu.setApplicationMenu(menu);
+    Menu.setApplicationMenu(menu);
 }
 
 /* -------------------------
@@ -145,21 +96,28 @@ function rebuildMenu(win) {
 --------------------------*/
 
 function createWindow() {
-  const win = new BrowserWindow({
-    icon: path.join(__dirname, "icons/icon.png"),
-    width: 900,
-    height: 600,
-    resizable: true,
-    frame: true,
-    transparent: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-  });
+    win = new BrowserWindow({
+        icon: path.join(__dirname, "icons/icon.png"),
+        width: 900,
+        height: 600,
+        resizable: true,
+        frame: true,
+        transparent: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        },
+    });
 
-  createProfileView(win, "Default_Server");
-  return win;
+    // Load your main HTML
+    win.loadFile('src/index.html');
+
+    // Open DevTools
+    win.webContents.openDevTools({ mode: 'detach' });
+
+    rebuildMenu();
+
+    return win;
 }
 
 /* -------------------------
@@ -167,18 +125,15 @@ function createWindow() {
 --------------------------*/
 
 app.whenReady().then(() => {
-  const win = createWindow();
-  rebuildMenu(win);
+    createWindow();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      const newWin = createWindow();
-      rebuildMenu(newWin);
-    }
-  });
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow();
+        }
+    });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+    if (process.platform !== 'darwin') app.quit();
 });
-

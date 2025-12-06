@@ -3,34 +3,35 @@
   "version": "1.0.2",
   "main": "main.js",
   "build": {
-  "appId": "com.github.gitipedras.textcat",
-  "icon": "src/icons/icon.png",
-
-  "linux": {
-    "target": [
-      {
-        "target": "AppImage",
-        "arch": ["x64", "arm64"]
-      }
-    ],
-    "category": "Utility"
-  },
-
-  "win": {
-    "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64", "arm64"]
-      }
+    "appId": "com.github.gitipedras.textcat",
+    "icon": "src/icons/icon.png",
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "Utility"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "files": [
+      "**/*"
     ]
   },
-
-  "files": [
-    "**/*"
-  ]
-},
-
-
   "scripts": {
     "run": "npx electron .",
     "patch": "sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox",
@@ -41,7 +42,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "electron": "^39.2.4",
+    "electron": "^39.2.6",
     "electron-builder": "^26.0.12"
   }
 }

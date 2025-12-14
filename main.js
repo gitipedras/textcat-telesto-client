@@ -1,49 +1,8 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
-/* -------------------------
-       DYNAMIC MENUS
---------------------------*/
 
-let profiles = ['Default_Server'];
-let activeProfile = 'Default_Server';
-let win = null;
-
-function buildProfilesSubmenu() {
-    const submenu = [];
-
-    submenu.push({
-        label: "Add Server",
-        click: () => {
-            const name = "Server_" + (profiles.length + 1);
-            profiles.push(name);
-            activeProfile = name;
-            rebuildMenu();
-            win.webContents.send('profile-changed', name);
-        }
-    });
-
-    submenu.push({ type: "separator" });
-
-    if (profiles.length === 0) {
-        submenu.push({ label: "(No servers)", enabled: false });
-    } else {
-        profiles.forEach(name => {
-            submenu.push({
-                label: name + (name === activeProfile ? " ✔" : ""),
-                click: () => {
-                    activeProfile = name;
-                    rebuildMenu();
-                    win.webContents.send('profile-changed', name);
-                }
-            });
-        });
-    }
-
-    return submenu;
-}
-
-function rebuildMenu() {
+function showMenu() {
     const menu = Menu.buildFromTemplate([
         {
             label: "Telesto",
@@ -51,19 +10,21 @@ function rebuildMenu() {
                 { role: "quit" }
             ]
         },
-
         {
-            label: "Servers",
-            submenu: buildProfilesSubmenu()
+            label: "Developer",
+            accelerator: "Ctrl+Shift+I",
+            click: (_, win) => {
+                win.webContents.toggleDevTools();
+                console.log("-> User opened Dev Tools <-")
+            }
         },
-
         {
             label: "Help",
             submenu: [
                 {
-                    label: "Docs/Help",
+                    label: "Source Code",
                     click: () => {
-                        require("electron").shell.openExternal("https://github.com/gitipedras/textcat");
+                        require("electron").shell.openExternal("https://github.com/gitipedras/textcat-telesto-client");
                     }
                 },
                 {
@@ -112,10 +73,7 @@ function createWindow() {
     // Load your main HTML
     win.loadFile('src/index.html');
 
-    // Open DevTools
-    win.webContents.openDevTools({ mode: 'detach' });
-
-    rebuildMenu();
+    showMenu()
 
     return win;
 }

@@ -2,171 +2,64 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Textcat Telesto</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
-
 </head>
 <body>
 
-<div id="logingui">
-    <h1>Textcat Telesto Client</h1>
-    <p style="text-align: center;">Made with Love and Kittens!</p>
-    <br>
-    <div>
-        <p id="cStats"></p>
-        Server Address: <input type="text" id="server" placeholder="Server address" required><br>
-        Username: <input type="text" id="username" placeholder="Username" required><br>
-        Password: <input type="text" id="password" value="" placeholder="Password" required><br>
-        <button onclick="login()" type="submit">Login</button>
-        <button onclick="loginRegister()" type="submit">Register</button><br>
+<div class="app">
 
+    <!-- SERVER ICON BAR -->
+    <div class="serverBar" id="serverBar">
+        <button id="addServerBtn">+</button>
     </div>
 
-    <!-- TODO: this is supposed to be the connection status -->
-    <p id="Premsg"></p><br>
-
-  <p>Client src: <a href="https://github.com/gitipedras/textcat-telesto-client" target="_blank">
-    <i class="bi bi-github"></i> GitHub (official client branch)
-  </a></p>
-
-
-
-</div>
-
-<div id="custom-popup" class="popup">
-    <div class="popup-content">
-      <p id="popup-text"></p>
-      <button id="popup-ok" onclick="closePopup()">Ok</button>
+    <!-- TOP BAR -->
+    <div class="statusBar">
+        <span id="currentServerName">No Server</span>
     </div>
-</div>
 
-<div id="user-popup" class="userpopup">
-  <div class="userpopup-content">
-    <h2 id="user-popup-username"></h2>
-    <p id="user-rank"></p>
-    <br>
-    <p>Token (hover to show)</p>
-    <a id="user-popup-token"></a>
-    <br><br>
-    <!--
-    <form id="statusForm">
-        <label for="status">Status</label>
-        <select name="status" id="statuses">
-            <option value="online">Online</option>
-            <option value="afk">AFK</option>
-            <option value="offline">Offline</option>
-        </select>
-        <br><br>
-        <input type="submit" value="Change">
-    </form>
-    -->
+    <!-- CHANNEL LIST -->
+    <div class="channelsBar">
+        <ul id="channelList"></ul>
+    </div>
 
-    <button id="user-popup-ok">Close</button>
-  </div>
-</div>
+    <!-- CHAT -->
+    <div class="messageArea">
+        <div id="messages"></div>
+        <input id="messageInput" placeholder="Message..." />
+    </div>
 
-
-
-<!-- The Modal -->
-<div id="settingsPage" class="modal">
-
-  <!-- Modal content -->
-  <div class="modal-content">
-    <span class="close">&times;</span>
-    <h2>Settings</h2>
-
-    <h3>Client settings </h3>
-
-      <h4>Client theme</h4>
-          <form id="themeForm">
-          <label for="themes">Theme</label>
-            <select name="theme" id="themes">
-              <option value="light">Default (theme)</option>
-              <option value="dark">Dark Theme</option>
-              <option value="blue">Blue</option>
-            </select>
-            <br><br>
-          <input type="submit" value="Submit">
-          </form>
-
-      <h4>Local storage (cookies, client data)</h4>
-      <p> Delete all localStorage (this doesn't delete your account or any of your data on the server)</p>
-      <button class="redbtn" onclick="deleteAllStorage()">Clear all local storage</button>
-
-      </form>
-  </div>
+    <!-- USERS -->
+    <div class="usersBar" id="usersBar">
+        <h4>Users</h4>
+        <ul id="usersList"></ul>
+    </div>
 
 </div>
 
-<div id="sidebar">
-    <h2>Channels</h2>
-    <div id="channelsList">
-        <ul id="channelList">
-            <li><a href="#" class="channel-link" data-channel="main">main</a></li>
-        </ul>
+<!-- CONTEXT MENU -->
+<!-- SERVER CONTEXT MENU -->
+<div id="serverContextMenu" class="context-menu">
+    <div id="reloadServer">Reload Connection</div>
+    <div id="disconnectServer" style="color:red;">Disconnect</div>
+    <div id="removeServer">Remove Server</div>
+
+</div>
+
+
+<!-- ADD SERVER MODAL -->
+<div id="addServerModal" class="modal hidden">
+    <div class="modal-content">
+        <h3>Add Server</h3>
+        <input id="serverAddress" placeholder="localhost:8080">
+        <input id="serverUsername" placeholder="Username">
+        <input id="serverToken" placeholder="Session Token">
+        <button id="connectServerBtn">Connect</button>
+        <button id="cancelServerBtn">Cancel</button>
     </div>
 </div>
 
-<div id="userBox">
-    <button id="sidebarToggle" class="hamburger">☰</button>
-    <a id="usernamebox" style="color:blue;cursor:default;text-decoration:underline;">Username</a>
-    <div>
-        <button onclick="logout()" id="logoutbtn">Logout</button>
-        <button onclick="openSettings()" id="modalBTN">Settings</button>
-    </div>
-</div>
-
-
-<div id="maingui">
-    <div id="messages"></div>
-</div>
-
-<div id="chatInputBar">
-    <input type="text" id="messageInput" placeholder="Enter your message">
-    <button id="sendButton" onclick="writeMessage()">Send</button>
-</div>
-
-
-
-</div>
-
-<script src="clientconfig.js"></script>
 <script src="websocket.js"></script>
-<script src="client.js"></script>
-<script>
-// Get the modal
-var modal = document.getElementById("settingsPage");
-
-// Get the button that opens the modal
-var btn = document.getElementById("modalBTN");
-
-// Get the <span> element that closes the modal
-var span = document.getElementsByClassName("close")[0];
-
-// When the user clicks the button, open the modal
-btn.onclick = function() {
-  modal.style.display = "block";
-}
-
-// When the user clicks on <span> (x), close the modal
-span.onclick = function() {
-  modal.style.display = "none";
-}
-
-// When the user clicks anywhere outside of the modal, close it
-window.onclick = function(event) {
-  if (event.target == modal) {
-    modal.style.display = "none";
-  }
-}
-</script>
-<script>
-document.getElementById("sidebarToggle").addEventListener("click", function() {
-  document.getElementById("sidebar").classList.toggle("active");
-});
-</script>
-
 </body>
 </html>

@@ -1,468 +1,472 @@
-var userToken
-let currentChannel = "main";
-let msgInput = document.getElementById("messageInput")
-alreadyRan = false
+/* ======================
+   GLOBAL STATE
+====================== */
 
-// A named function to handle the channel link click event
-const channelLinkClickHandler = e => {
-    e.preventDefault(); // stop the "#" jump
-    clearChat();
+const servers = new Map();
+let activeServerId = null;
 
-    // The 'this' keyword inside an arrow function needs to be handled
-    // We get the channel name directly from the event target
-    const link = e.currentTarget; 
+let audioUnlocked = false;
 
-    if (alreadyRan === true) {
-        disconnectChannel(currentChannel);
+function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+
+    notificationSound.muted = true;
+
+    notificationSound.play()
+        .then(() => {
+            notificationSound.pause();
+            notificationSound.currentTime = 0;
+            notificationSound.muted = false;
+            console.log("Audio unlocked");
+        })
+        .catch(err => {
+            console.error("Audio unlock failed:", err);
+        });
+}
+
+
+// Any user interaction unlocks audio
+document.addEventListener("click", unlockAudio, { once: true });
+document.addEventListener("keydown", unlockAudio, { once: true });
+
+
+/* ======================
+   DOM
+====================== */
+
+const serverBar = document.getElementById("serverBar");
+const channelList = document.getElementById("channelList");
+const messagesDiv = document.getElementById("messages");
+const messageInput = document.getElementById("messageInput");
+const serverNameLabel = document.getElementById("currentServerName");
+
+/* ======================
+   NOTIFICATIONS & SOUND
+====================== */
+
+// Preload notification sound
+const notificationSound = new Audio("sounds/ping.wav");
+notificationSound.volume = 0.6;
+
+// Ask permission once (Electron usually auto-grants)
+if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+}
+
+// Helper: show notification
+function notifyMessage(server, msg) {
+    // don't notify for your own messages
+    //if (msg.Username === server.username) return;
+
+    const windowFocused = document.hasFocus();
+    const isActiveServer = server.id === activeServerId;
+    const isActiveChannel = msg.ChannelID === server.activeChannel;
+
+    // always play sound (even if focused, cuz i want it to pls)
+    try {
+        notificationSound.currentTime = 0;
+        notificationSound.play();
+    } catch (e) {
+        console.warn("Sound blocked:", e);
     }
 
-    const channelName = link.getAttribute("data-channel");
-    connectChannel(channelName);
+    // only show desktop notification if NOT focused
+    if (windowFocused && isActiveServer && isActiveChannel) return;
 
-    // make clicked link bold
-    document.querySelectorAll(".channel-link").forEach(l => l.classList.remove("active-channel"));
-    link.classList.add("active-channel");
+    if ("Notification" in window && Notification.permission === "granted") {
+        const n = new Notification(`${server.name} • #${msg.ChannelID}`, {
+            body: `${msg.Username}: ${msg.Value}`,
+            silent: true // sound handled manually
+        });
+
+        n.onclick = () => {
+            window.focus();
+            setActiveServer(server.id);
+            switchChannel(server, msg.ChannelID);
+        };
+    }
+}
+
+console.log("Notification permission:", Notification.permission);
+
+
+/* ======================
+   ADD SERVER MODAL
+====================== */
+
+const modal = document.getElementById("addServerModal");
+
+addServerBtn.onclick = () => modal.classList.remove("hidden");
+cancelServerBtn.onclick = () => modal.classList.add("hidden");
+
+connectServerBtn.onclick = () => {
+    createServer(
+        serverAddress.value,
+        serverUsername.value,
+        serverToken.value
+    );
+    modal.classList.add("hidden");
 };
 
+/* ======================
+   SERVER CREATION
+====================== */
 
-// A reusable function to apply the listeners to all channel links
-function bindChannelListeners() {
-    console.log("Binding channel link listeners...");
-    document.querySelectorAll(".channel-link").forEach(link => {
-        // Use a flag to prevent attaching the listener multiple times to the same element
-        if (!link.classList.contains('listeners-bound')) {
-            link.addEventListener("click", channelLinkClickHandler);
-            link.classList.add('listeners-bound');
+function createServer(address, username, token) {
+    const id = crypto.randomUUID();
+    const ws = new WebSocket(`ws://${address}/ws`);
+
+    const server = {
+        id,
+        address,
+        username,
+        password: token, // initially password
+        sessionToken: null, // later filled by server
+        socket: ws,
+        name: address,
+        channels: new Map(),
+        activeChannel: "main",
+        loggedIn: false
+    };
+
+    servers.set(id, server);
+    createServerIcon(server);
+    saveServers();
+
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({
+            Rtype: "login",
+            Username: server.username,
+            SessionToken: server.password // PASSWORD HERE
+        }));
+    };
+
+
+
+    ws.onclose = () => {
+        server.icon.style.backgroundColor = "red"; // visually mark disconnected
+        appendMessage({ Username: "System", Value: `Server ${server.name} disconnected.` });
+    };
+
+
+    ws.onmessage = e => handleServerMessage(server, JSON.parse(e.data));
+}
+
+/* ======================
+   MESSAGE HANDLER
+====================== */
+
+function handleServerMessage(server, msg) {
+    switch (msg.Rtype) {
+
+        case "loginStats":
+            if (msg.Status === "ok") {
+                server.loggedIn = true;
+                server.sessionToken = msg.Value; // SESSION TOKEN
+                server.name = msg.ServerName;
+                updateServerIcon(server);
+                requestChannels(server);
+                setActiveServer(server.id);
+            }
+            break;
+
+        case "channelList":
+            server.channels.clear();
+
+            /* Always include main visually */
+            server.channels.set("main", []);
+
+            /* Server-provided channels */
+            for (const [name] of Object.entries(msg.ChannelList || {})) {
+                if (name !== "main") {
+                    server.channels.set(name, []);
+                }
+            }
+
+            // ensure active channel is set then switch
+            if (!server.activeChannel) server.activeChannel = "main";
+            switchChannel(server, server.activeChannel);
+
+            renderChannels(server);
+            break; // <-- important to prevent fall-through
+
+        case "messageCache":
+            if (msg.MsgCache) {
+                for (const [user, text] of Object.entries(msg.MsgCache)) {
+                    appendMessage({ Username: user, Value: text });
+                }
+            }
+            break;
+
+        case "NewMessage": {
+            // resolve channel id robustly
+            const channelId = msg.ChannelID ?? msg.Channel ?? msg.ChannelId ?? server.activeChannel;
+            const safeChannelId = (typeof channelId === "string" && channelId.length > 0) ? channelId : server.activeChannel;
+
+            // create a message object that always contains ChannelID for later use
+            const msgWithChannel = { ...msg, ChannelID: safeChannelId };
+
+            // ensure channel exists and store message
+            if (!server.channels.has(safeChannelId)) server.channels.set(safeChannelId, []);
+            server.channels.get(safeChannelId).push(msgWithChannel);
+
+            // If the message is for the currently-viewed server+channel, show it in the chat
+            if (server.id === activeServerId && safeChannelId === server.activeChannel) {
+                appendMessage(msgWithChannel);
+            } else {
+                // otherwise notify the user (sound + desktop notification)
+                notifyMessage(server, msgWithChannel);
+            }
+            break;
         }
+
+
+        default:
+            // optionally log unknown message types for debugging
+            console.warn("Unhandled message type:", msg.Rtype, msg);
+            break;
+    }
+}
+
+
+/* ======================
+   CHANNELS
+====================== */
+
+function requestChannels(server) {
+    server.socket.send(JSON.stringify({
+        Rtype: "channelsList",
+        Username: server.username,
+        SessionToken: server.sessionToken
+    }));
+}
+
+
+function renderChannels(server) {
+    channelList.innerHTML = "";
+
+    server.channels.forEach((_, name) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="#" class="channel-link" data-channel="${name}">${name}</a>`;
+
+        const a = li.firstElementChild;
+        if (name === server.activeChannel) a.classList.add("active");
+
+        li.onclick = e => {
+            e.preventDefault();
+            switchChannel(server, name);
+        };
+
+        channelList.appendChild(li);
     });
 }
 
-function wsConnect(action, address, password, username) {
-// action is if ur signin in or registering
-// msg is the object with the input field
-// address is the object with the server address
 
-    let url = "ws://" + address + "/ws"
-    webSocket = new WebSocket(url);
+function switchChannel(server, channel) {
+    if (!server.loggedIn) return;
 
-    let sidebar = document.getElementById("sidebar")
-    function inputInit() {
-        console.log("input init")
+    server.activeChannel = channel;
+    clearChat();
 
-        // Call the new function to bind listeners (initial bind)
-        bindChannelListeners(); 
-
-        // Find the main channel and visually mark it as active on first login
-        const mainLink = document.querySelector('.channel-link[data-channel="main"]');
-        if (mainLink) {
-            mainLink.classList.add("active-channel");
-            // NOTE: If you want 'main' to be connected on login, 
-            // you would call connectChannel("main") here or inside loginStats
-        }
-
-        // Your existing message input listener
-        msgInput.addEventListener("keydown", function(e) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                writeMessage();
-                messageInput.value = "";
-            }
-        });
-    }
+    server.socket.send(JSON.stringify({
+        Rtype: "connect",
+        ChannelID: channel,
+        Username: server.username,
+        SessionToken: server.sessionToken
+    }));
 
 
-    webSocket.onopen = function() {
-        console.log("Connected to WebSocket server");
-        console.log("Websocket connection open")
 
-        if (action == "login") {
-                let payload = {
-                    Rtype: "login",
-                    Username: username,
-                    SessionToken: password,
-                };
-            console.log("Sent login request to server at", address)
-            webSocket.send(JSON.stringify(payload));
+    renderMessages(server);
+    renderChannels(server);
 
-        } else {
-            let payload = {
-                Rtype: "register",
-                Username: username,
-                SessionToken: password,
-            };
-            console.log("Sent register request to server at", address)
-            webSocket.send(JSON.stringify(payload));
-        }
-    };
-    
-
-    webSocket.onmessage = function(event) {
-
-        console.log("--- server: ", event.data)
-        const msg = JSON.parse(event.data);
-
-        switch (msg.Rtype) {
-            /* --- Loggin In and Registering */
-            case "loginStats":
-                if (msg.Status == "ok") {
-                    userToken = msg.Value
-
-                    setDetails(msg.ServerName, msg.ServerDesc)
-                    guiTransition()
-                    inputInit()
-
-                let payload = {
-                    Rtype: "channelsList",
-                    Username: username,
-                    SessionToken: password,
-                };
-                console.log("Sent channels list req to server at", address)
-                webSocket.send(JSON.stringify(payload));
-
-                } else if (msg.Status == "invalidInput") {
-                    showAlert("Invalid username: username must only contain normal letters (capital included), numbers and underscores. Dashes ('-') are not supported.")
-
-                } else if (msg.Status == "alreadyLoggedIn") {
-                    showAlert("Already logged in: A session already exists for this user")
-                } else {
-                    showAlert("Invalid username or password")
-                }
-            break;
-
-            case "registerStats":
-                if (msg.Status == "ok") {
-                    showAlert("Register Success, please login now.")
-                } else {
-                    showAlert("Username is taken")
-                }
-            break;
-
-            case "invalidInput":
-                showAlert("Invalid Input: Messages cannot be empty or longer than 70 characters")
-                break;
-
-            case "channelList": {
-                console.log("new channel list: ", msg);
-
-                let listEl = document.getElementById("channelList");
-
-                // clear existing list EXCEPT for "main"
-                listEl.innerHTML = `<li><a href="#" class="channel-link" data-channel="main">main</a></li>`;
-
-                // loop channels from server and create new <li> elements
-                for (const [name, count] of Object.entries(msg.ChannelList)) {
-                    if (name === "main") continue;
-                    let li = document.createElement("li");
-                    li.innerHTML = `<a href="#" class="channel-link" data-channel="${name}">${name} (${count})</a>`;
-                    listEl.appendChild(li);
-                }
-                
-                // re-bind listeners to include the new channels
-                bindChannelListeners(); 
-
-                break;
-            }
-
-            case "kicked":
-                showAlert("Connection force-closed by the server");
-                logout();
-                break;
-
-            case "rejected":
-                showAlert("Login was rejected by the server")
-                break;
-
-            /* --- Client stuff --- */
-            case "disconnectStats":
-                if (msg.Status == "error") {
-                    showAlert("Error disconnecting " + msg.Value)
-                } else {
-                    console.log("disconnect ok")
-                }
-                break;
-
-            case "invalidChannel":
-                showAlert("Invalid Channel")
-                console.warn("Invalid channel")
-                break;
-
-            case "unknownReq":
-                console.warn("Outdated client or server, server sent unknownReq")
-                break;
-
-            case "messageCache":
-                if (msg.MsgCache == null && msg.MsgCache == undefined) {
-
-                } else {
-                    for (const [username, message] of Object.entries(msg.MsgCache)) {
-                        messageDisplay(username, message);
-                    }
-                }
-                break;
-
-            case "isr":
-                showAlert("[Server] Internal Server Error: " + msg.Status)
-                logout()
-                break;
-            
-
-            case "invalidToken":
-                showAlert("An invalid token was provided to the server -- please login again.")
-                break;
-                
-            case "alreadyConnected":
-                showAlert("You are already connected to a channel")
-                break;
-
-            case "connectStats":
-                if (msg.Status == "error") {
-                    showAlert("Error disconnecting " + msg.Value)
-                } else if (msg.Status == "invalidToken") {
-                    showAlert("Invalid token: please reload this page and login again, if the issue persists, contact an administrator.")
-                } else {
-                    console.log("connect OK")
-                }
-                break;
-
-            case "failed":
-                showAlert("Failed to send message, reason: ", msg.Status)
-                break;
-
-
-            case "invalidSession":
-                showAlert("An invalid session was provided")
-                logout()
-                break;
-
-            case "NewMessage":
-                console.log("New message: " + msg.Value, " Sent by: " + msg.Username)
-                messageDisplay(msg.Username, msg.Value, msg.Time)
-                break;
-
-            default:
-                console.log("Unknown request type from server: " + msg.Rtype);
-                break;
-        }
-
-    };
-
-    webSocket.onclose = function() {
-        showAlert("Connection closed.");
-    };
-
-    webSocket.onerror = function(error) {
-        showAlert("Websocket Error: ", error)
-        console.error("WebSocket error:", error);
-    };
 }
 
-function logout() {
-    showAlert("Log out")
-    guiTransition()
-    webSocket.close();
+/* ======================
+   MESSAGES
+====================== */
+
+function renderMessages(server) {
+    clearChat();
+    (server.channels.get(server.activeChannel) || []).forEach(appendMessage);
 }
 
-function disconnectChannel() {
-    console.log("current channel is " + currentChannel)
-    msgValue = msgInput.value
-    usernameV = username.value
-    let payload = {
-                Rtype: "disconnect",
-                SessionToken: userToken,
-                ChannelID: currentChannel,
-                Username: usernameV,
-    };
-    console.log("Disconnecting: ", payload)
-    webSocket.send(JSON.stringify(payload));
-}
-
-function connectChannel(channel) {
-    alreadyRan = true
-    msgValue = msgInput.value
-    usernameV = username.value
-    let payload = {
-                Rtype: "connect",
-                SessionToken: userToken,
-                ChannelID: channel,
-                Username: usernameV,
-    };
-    currentChannel = channel
-    console.log("Connected to channel: ", payload)
-    webSocket.send(JSON.stringify(payload));
-}
-
-function writeMessage() {
-    aUsername = document.getElementById("username").value
-    msgValue = msgInput.value
-    let payload = {
-                Rtype: "message",
-                SessionToken: userToken,
-                ChannelID: currentChannel,
-                Message: msgValue,
-                Username: aUsername,
-    };
-    console.log("Sent message: ", payload)
-    webSocket.send(JSON.stringify(payload));
-}
-
-function escapeHTML(text) {
+function appendMessage(msg) {
     const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML; // safely escaped
-}
-
-function formatMessage(text) {
-    // Escape first (prevents <script> etc.)
-    let safe = escapeHTML(text);
-
-    // Markdown replacements
-    safe = safe
-        .replace(/^#### (.*$)/gim, "<h4>$1</h4>")  // #### heading4
-        .replace(/^### (.*$)/gim, "<h3>$1</h3>")  // ### heading3
-        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")   // **bold**
-        .replace(/\*(.*?)\*/g, "<i>$1</i>")      // *italic*
-        .replace(/#/g, "<br>");  // single # becomes a newline
-
-    return safe;
-}
-
-function messageDisplay(username, message, time) {
-    const messagesDiv = document.getElementById("messages");
-
-    const wrapper = document.createElement("div");
-
-    // Username
-    const userEl = document.createElement("b");
-    userEl.textContent = username + ": ";
-
-    // Message
-    const msgEl = document.createElement("span");
-    msgEl.innerHTML = formatMessage(message); // safe + markdown
-
-    // Timestamp
-    const timeEl = document.createElement("span");
-    timeEl.style.color = "gray"; // make it gray
-    timeEl.style.marginLeft = "6px"; // optional spacing
-    const date = new Date(time);
-
-    if (isNaN(date.getTime())) {
-        // Invalid date
-        timeEl.textContent = "No Time";
-        timeEl.title = "No Time";
-    } else {
-        // Format hh:mm for display
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        timeEl.textContent = `${hours}:${minutes}`;
-
-        // Full human-readable tooltip: "July 3rd 2025 at 14:23:45"
-        const day = date.getDate();
-        const daySuffix = (d) => {
-            if (d > 3 && d < 21) return "th";
-            switch (d % 10) {
-                case 1: return "st";
-                case 2: return "nd";
-                case 3: return "rd";
-                default: return "th";
-            }
-        };
-        const monthNames = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ];
-        const fullTime = `${monthNames[date.getMonth()]} ${day}${daySuffix(day)} ${date.getFullYear()} at ${hours}:${minutes}:${String(date.getSeconds()).padStart(2,"0")}`;
-        timeEl.title = fullTime; // tooltip
-    }
-
-    // Append elements
-    wrapper.appendChild(userEl);
-    wrapper.appendChild(msgEl);
-    wrapper.appendChild(timeEl);
-
-    messagesDiv.appendChild(wrapper);
-}
-
-
-
-
-
-
-function setDetails(name, desc) {
-    const sidebar = document.getElementById("sidebar");
-
-    // create footer container
-    const footer = document.createElement("div");
-    footer.id = "sidebar-footer"; // optional id for styling
-
-    // create name paragraph
-    const nameP = document.createElement("p");
-    nameP.textContent = name;
-    footer.appendChild(nameP);
-
-    // create description paragraph
-    const descP = document.createElement("p");
-    descP.textContent = desc;
-    footer.appendChild(descP);
-
-    // append footer to sidebar
-    sidebar.appendChild(footer);
+    div.innerHTML = `<b>${msg.Username}:</b> ${msg.Value}`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function clearChat() {
-    document.getElementById("messages").innerHTML = "";
+    messagesDiv.innerHTML = "";
 }
 
-let userpopupBox = document.getElementById("user-popup")
-let Pusername = document.getElementById("user-popup-username")
-let Ptoken = document.getElementById("user-popup-token")
-let Prank = document.getElementById("user-rank")
+/* ======================
+   SEND MESSAGE
+====================== */
 
-function showUserPopup() {
-    if (username.value == "admin" ) {
-        Pusername.innerHTML = username.value
-        Pusername.style.color = "gold"
-        Pusername.style.cursor = "crosshair"
-    } else {
-        Pusername.innerHTML = username.value
+messageInput.onkeydown = e => {
+    if (e.key !== "Enter") return;
+
+    const server = servers.get(activeServerId);
+    if (!server || !server.loggedIn) return;
+
+    server.socket.send(JSON.stringify({
+        Rtype: "message",
+        ChannelID: server.activeChannel,
+        Message: messageInput.value,
+        Username: server.username,
+        SessionToken: server.sessionToken
+    }));
+
+
+    messageInput.value = "";
+};
+
+
+/* ======================
+   SERVER UI
+====================== */
+
+function createServerIcon(server) {
+    const icon = document.createElement("div");
+    icon.className = "server-icon";
+    icon.textContent = "?";
+    icon.dataset.serverId = server.id;           // store server id on element
+    icon.onclick = () => setActiveServer(server.id);
+    serverBar.appendChild(icon);
+    server.icon = icon;
+}
+
+
+// ======================
+// SERVER CONTEXT MENU
+// ======================
+
+const serverContextMenu = document.getElementById("serverContextMenu");
+let rightClickedServerId = null;
+
+// Right-click on server icon
+serverBar.addEventListener("contextmenu", e => {
+    e.preventDefault();
+    const icon = e.target.closest(".server-icon");
+    if (!icon) return;
+
+    rightClickedServerId = icon.dataset.serverId; // now an id string
+    serverContextMenu.style.top = `${e.pageY}px`;
+    serverContextMenu.style.left = `${e.pageX}px`;
+    serverContextMenu.style.display = "block";
+});
+
+// Hide menu on click elsewhere
+document.addEventListener("click", () => {
+    serverContextMenu.style.display = "none";
+});
+
+// Disconnect server
+document.getElementById("disconnectServer").onclick = () => {
+    if (!rightClickedServerId) return;
+    const server = servers.get(rightClickedServerId);
+    if (!server) return;
+    server.socket.close();
+    server.icon.style.backgroundColor = "red"; // show disconnected
+    serverContextMenu.style.display = "none";
+};
+
+// Reload server
+document.getElementById("reloadServer").onclick = () => {
+    if (!rightClickedServerId) return;
+    const server = servers.get(rightClickedServerId);
+    if (!server) return;
+
+    const { address, username, password } = server;
+
+    // fully close old connection
+    try { server.socket.close(); } catch {}
+
+    // remove old icon + server entry (important)
+    if (server.icon?.parentNode) {
+        server.icon.parentNode.removeChild(server.icon);
     }
-    Ptoken.innerHTML = userToken
-    Ptoken.title = "Click to copy!";
-    //Prank.innerHTML = userRank
-    userpopupBox.style.display = 'block'
+    servers.delete(server.id);
+
+    // reconnect using PASSWORD, not session token
+    setTimeout(() => {
+        createServer(address, username, password);
+    }, 300);
+
+    serverContextMenu.style.display = "none";
+};
+
+
+document.getElementById("removeServer").onclick = () => {
+    if (!rightClickedServerId) return;
+
+    const server = servers.get(rightClickedServerId);
+    if (!server) return;
+
+    // Close connection
+    try { server.socket.close(); } catch {}
+
+    // Remove icon
+    if (server.icon?.parentNode) {
+        server.icon.parentNode.removeChild(server.icon);
+    }
+
+    // Remove from map
+    servers.delete(rightClickedServerId);
+
+    // Reset UI if it was active
+    if (activeServerId === rightClickedServerId) {
+        activeServerId = null;
+        channelList.innerHTML = "";
+        messagesDiv.innerHTML = "";
+        serverNameLabel.textContent = "No Server";
+    }
+
+    serverContextMenu.style.display = "none";
+};
+
+
+
+
+function updateServerIcon(server) {
+    server.icon.textContent = (server.name && server.name.length) ? server.name[0] : "?";
 }
 
-// Make it clickable
-Ptoken.style.cursor = "pointer"; // optional, shows pointer on hover
-Ptoken.onclick = () => {
-    const tokenText = Ptoken.textContent || Ptoken.innerText;
-    if (!tokenText) return;
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(tokenText)
-        .then(() => {
-            alert("Token copied to clipboard!");
-        })
-        .catch(err => {
-            console.error("Failed to copy token:", err);
-        });
-};
+function setActiveServer(id) {
+    activeServerId = id;
+
+    document.querySelectorAll(".server-icon")
+        .forEach(i => i.classList.remove("active"));
+
+    const server = servers.get(id);
+    server.icon.classList.add("active");
+    serverNameLabel.textContent = server.name;
+
+    renderChannels(server);
+    renderMessages(server);
+}
+
+function saveServers() {
+    const data = Array.from(servers.values()).map(s => ({
+        address: s.address,
+        username: s.username,
+        password: s.password,
+        sessionToken: s.sessionToken
+    }));
+    localStorage.setItem("servers", JSON.stringify(data));
+}
 
 
-let usernameLink = document.getElementById("usernamebox")
-usernameLink.onclick = () => {
-    showUserPopup()
+(function restoreServers() {
+    const saved = JSON.parse(localStorage.getItem("servers") || "[]");
+    for (const s of saved) {
+        createServer(s.address, s.username, s.password);
+    }
+})();
 
-    return false;
-};
-
-let currentStatus = ""; // variable to hold the value
-let statusForm = document.getElementById("statusForm")
-
-statusForm.onsubmit = (e) => {
-    e.preventDefault(); // stop page reload
-
-    const statusSelect = document.getElementById("statuses");
-    currentStatus = statusSelect.value;
-
-    console.log("Status set to:", currentStatus);
-};

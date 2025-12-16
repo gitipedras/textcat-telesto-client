@@ -54,25 +54,27 @@ jobs:
           name: build-windows
           path: dist/*
 
-  mac:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+mac:
+  runs-on: macos-latest
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
 
-      - name: Install dependencies
-        run: npm install
+    - name: Install dependencies
+      run: npm install
 
-      - name: Build (macOS)
-        run: npm run build
+    - name: Build (macOS Universal)
+      run: npm run build -- --mac --universal
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-macos
-          path: dist/*
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-macos-universal
+        path: dist/*
+

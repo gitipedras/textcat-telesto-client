@@ -191,7 +191,7 @@ registerServerBtn.onclick = () => {
 
     ws.onerror = err => {
         console.error("Register failed:", err);
-        alert("Register failed (check console)");
+        alert("Register failed \n Check address, internet connection \n or check developer console (toolbar)");
     };
 };
 

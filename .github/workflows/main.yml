@@ -5,9 +5,22 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Select what to build"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - mac-x64
+          - mac-arm64
 
 jobs:
   linux:
+    if: github.event_name == 'push' || github.event.inputs.target == 'linux' || github.event.inputs.target == 'all'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,6 +44,7 @@ jobs:
           path: dist/*
 
   windows:
+    if: github.event_name == 'push' || github.event.inputs.target == 'windows' || github.event.inputs.target == 'all'
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -55,7 +69,8 @@ jobs:
 
   mac-x64:
     name: macOS x64 (Intel)
-    runs-on: macos-latest
+    if: github.event_name == 'push' || github.event.inputs.target == 'mac-x64' || github.event.inputs.target == 'all'
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,7 +94,8 @@ jobs:
 
   mac-arm64:
     name: macOS arm64 (Apple Silicon)
-    runs-on: macos-latest
+    if: github.event_name == 'push' || github.event.inputs.target == 'mac-arm64' || github.event.inputs.target == 'all'
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4

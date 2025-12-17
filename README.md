@@ -2,6 +2,8 @@
 A textcat client made with Javascript and Electron.
 Named after the Saturn moon '[Telesto](https://en.wikipedia.org/wiki/Telesto_(moon))'
 
+[![Build Electron App](https://github.com/gitipedras/textcat-telesto-client/actions/workflows/main.yml/badge.svg)](https://github.com/gitipedras/textcat-telesto-client/actions/workflows/main.yml)
+
 ### Building from source
 Install electron (for running from source)
 `npm install electron --save-dev`

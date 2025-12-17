@@ -55,7 +55,33 @@ jobs:
           name: build-windows
           path: dist/*
 
-  mac:
+  mac-x64:
+    name: macOS x64 (Intel)
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build (macOS x64)
+        run: npm run build -- --mac --x64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos-x64
+          path: dist/*
+
+  mac-arm64:
+    name: macOS arm64 (Apple Silicon)
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -70,12 +96,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build (macOS Universal)
-        run: npm run build -- --mac --universal
+      - name: Build (macOS arm64)
+        run: npm run build -- --mac --arm64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-macos-universal
+          name: build-macos-arm64
           path: dist/*
 

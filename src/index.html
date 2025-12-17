@@ -17,6 +17,11 @@
     <!-- TOP BAR -->
     <div class="statusBar">
         <span id="currentServerName">No Server</span>
+
+        <div class="userInfo" id="userInfo">
+            <button id="userButton">No Server</button>
+            <div class="sessionToken" id="sessionToken">—</div>
+        </div>
     </div>
 
     <!-- CHANNEL LIST -->
@@ -28,6 +33,11 @@
     <div class="messageArea">
         <div id="messages"></div>
         <input id="messageInput" placeholder="Message..." />
+
+        <button id="newMessagesBtn" class="new-messages hidden">
+            New messages :)
+        </button>
+
     </div>
 
     <!-- USERS -->
@@ -47,6 +57,16 @@
 
 </div>
 
+<!-- ERROR DIALOG -->
+<div id="errorModal" class="modal hidden">
+    <div class="modal-content error-modal">
+        <h3 id="errorTitle">Error</h3>
+        <p id="errorMessage"></p>
+        <button id="errorCloseBtn">OK</button>
+    </div>
+</div>
+
+
 
 <!-- ADD SERVER MODAL -->
 <div id="addServerModal" class="modal hidden">
@@ -62,5 +82,129 @@
 </div>
 
 <script src="websocket.js"></script>
+<script>
+/* ======================
+   CHAT FORMATTER (PARSER)
+====================== */
+
+function escapeHTMLChar(ch) {
+    if (ch === "&") return "&amp;";
+    if (ch === "<") return "&lt;";
+    if (ch === ">") return "&gt;";
+    return ch;
+}
+
+function formatChatMessage(input) {
+    if (!input) return "";
+
+    let i = 0;
+    let out = "";
+
+    function readUntilDollar() {
+        let buf = "";
+        while (i < input.length && input[i] !== "$") {
+            buf += escapeHTMLChar(input[i]);
+            i++;
+        }
+        return buf;
+    }
+
+    while (i < input.length) {
+        const ch = input[i];
+
+        /* ---------- COMMAND ---------- */
+        if (ch === "$") {
+            i++; // skip $
+
+            // read command name
+            let cmd = "";
+            while (i < input.length && input[i] !== " " && input[i] !== "$") {
+                cmd += input[i];
+                i++;
+            }
+
+            /* ---------- NEWLINE ---------- */
+            if (cmd === "n") {
+                out += "<br>";
+                if (input[i] === "$") i++;
+                continue;
+            }
+
+            /* ---------- IMAGE ---------- */
+            if (cmd.startsWith("img:")) {
+                const url = escapeHTMLChar(cmd.slice(4));
+                out += `<img src="${url}" style="max-width:300px;border-radius:6px;" />`;
+                continue;
+            }
+
+            /* ---------- WEB LINK ---------- */
+            if (cmd.startsWith("web:")) {
+                const link = escapeHTMLChar(cmd.slice(4));
+                out += `<a href="https://${link}" target="_blank" rel="noopener noreferrer">${link}</a>`;
+                continue;
+            }
+
+            // skip space after command
+            if (input[i] === " ") i++;
+
+            // read content until closing $
+            let content = "";
+            while (i < input.length && input[i] !== "$") {
+                content += escapeHTMLChar(input[i]);
+                i++;
+            }
+            if (input[i] === "$") i++;
+
+            /* ---------- HEADERS ---------- */
+            if (cmd === "h1") out += `<h1>${content}</h1>`;
+            else if (cmd === "h2") out += `<h2>${content}</h2>`;
+            else if (cmd === "h3") out += `<h3>${content}</h3>`;
+            else if (cmd === "h4") out += `<h4>${content}</h4>`;
+            else {
+                // unknown command → render literally
+                out += `$${cmd} ${content}$`;
+            }
+
+            continue;
+        }
+
+        /* ---------- BOLD ---------- */
+        if (ch === "*" && input[i + 1] === "*") {
+            i += 2;
+            let content = "";
+            while (i < input.length && !(input[i] === "*" && input[i + 1] === "*")) {
+                content += escapeHTMLChar(input[i]);
+                i++;
+            }
+            i += 2;
+            out += `<b>${content}</b>`;
+            continue;
+        }
+
+        /* ---------- ITALIC ---------- */
+        if (ch === "*") {
+            i++;
+            let content = "";
+            while (i < input.length && input[i] !== "*") {
+                content += escapeHTMLChar(input[i]);
+                i++;
+            }
+            i++;
+            out += `<i>${content}</i>`;
+            continue;
+        }
+
+        /* ---------- NORMAL TEXT ---------- */
+        out += escapeHTMLChar(ch);
+        i++;
+    }
+
+    return out;
+}
+</script>
+
+
+
+
 </body>
 </html>

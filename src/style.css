@@ -9,6 +9,11 @@
   --border-subtle: #1a1b1e;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: sans-serif;
@@ -95,13 +100,19 @@ body {
 .messageArea {
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  height: 100%;
+  position: relative;
+  min-height: 0;
 }
 
 #messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 12px;
 }
+
 
 #messageInput {
   background: var(--bg-elevated);
@@ -110,6 +121,7 @@ body {
   padding: 10px;
   border-radius: 8px;
   outline: none;
+  flex-shrink: 0;
 }
 
 #messageInput::placeholder {
@@ -326,4 +338,91 @@ input {
 
 input:focus {
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+.userInfo {
+  margin-left: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#userButton {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sessionToken {
+  max-width: 240px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  filter: blur(6px);
+  transition: filter 0.15s ease;
+  user-select: none;
+}
+
+/* Reveal on hover */
+.userInfo:hover .sessionToken {
+  filter: blur(0);
+}
+
+/* ======================
+   ERROR MODAL
+====================== */
+
+.error-modal {
+  border: 1px solid #7f1d1d;
+}
+
+.error-modal h3 {
+  margin: 0;
+  color: #f87171;
+}
+
+.error-modal p {
+  color: var(--text-normal);
+  font-size: 14px;
+}
+
+#errorCloseBtn {
+  background: #7f1d1d;
+  border: none;
+  color: white;
+}
+
+#errorCloseBtn:hover {
+  background: #991b1b;
+}
+
+/* NEW MESSAGES INDICATOR */
+.new-messages {
+  position: absolute;
+  bottom: 72px; /* above input */
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+
+.new-messages.hidden {
+  display: none;
+}
+
+/* make messageArea relative so button positions correctly */
+.messageArea {
+  position: relative;
 }

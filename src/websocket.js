@@ -2,6 +2,12 @@
    GLOBAL STATE
 ====================== */
 
+const newMessagesBtn = document.getElementById("newMessagesBtn");
+
+let userNearBottom = true;
+const SCROLL_THRESHOLD = 80; // px
+
+
 const servers = new Map();
 let activeServerId = null;
 
@@ -30,7 +36,6 @@ function unlockAudio() {
 document.addEventListener("click", unlockAudio, { once: true });
 document.addEventListener("keydown", unlockAudio, { once: true });
 
-
 /* ======================
    DOM
 ====================== */
@@ -40,6 +45,52 @@ const channelList = document.getElementById("channelList");
 const messagesDiv = document.getElementById("messages");
 const messageInput = document.getElementById("messageInput");
 const serverNameLabel = document.getElementById("currentServerName");
+
+messagesDiv.addEventListener("scroll", () => {
+    const distanceFromBottom =
+        messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight;
+
+    userNearBottom = distanceFromBottom < SCROLL_THRESHOLD;
+
+    // If user manually scrolls back down, hide the button
+    if (userNearBottom) {
+        newMessagesBtn.classList.add("hidden");
+    }
+});
+
+newMessagesBtn.onclick = () => {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    newMessagesBtn.classList.add("hidden");
+};
+
+if (userNearBottom) {
+    requestAnimationFrame(() => {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+}
+
+
+
+
+/* ======================
+   ERROR DIALOG
+====================== */
+
+const errorModal = document.getElementById("errorModal");
+const errorTitle = document.getElementById("errorTitle");
+const errorMessage = document.getElementById("errorMessage");
+const errorCloseBtn = document.getElementById("errorCloseBtn");
+
+errorCloseBtn.onclick = () => {
+    errorModal.classList.add("hidden");
+};
+
+function showErrorDialog(title, message) {
+    errorTitle.textContent = title;
+    errorMessage.textContent = message;
+    errorModal.classList.remove("hidden");
+}
+
 
 /* ======================
    NOTIFICATIONS & SOUND
@@ -109,6 +160,42 @@ connectServerBtn.onclick = () => {
     modal.classList.add("hidden");
 };
 
+registerServerBtn.onclick = () => {
+    const address = serverAddress.value;
+    const username = serverUsername.value;
+    const password = serverToken.value;
+
+    if (!address || !username || !password) {
+        alert("Address, username, and password are required");
+        return;
+    }
+
+    const ws = new WebSocket(`ws://${address}/ws`);
+
+    ws.onopen = () => {
+        const payload = {
+            Rtype: "register",
+            Username: username,
+            SessionToken: password
+        };
+
+        console.log("Sent register request to server at", address);
+        ws.send(JSON.stringify(payload));
+    };
+
+    ws.onmessage = e => {
+        console.log("Register response:", e.data);
+        alert("Registered! You can now connect.");
+        ws.close();
+    };
+
+    ws.onerror = err => {
+        console.error("Register failed:", err);
+        alert("Register failed (check console)");
+    };
+};
+
+
 /* ======================
    SERVER CREATION
 ====================== */
@@ -169,8 +256,21 @@ function handleServerMessage(server, msg) {
                 updateServerIcon(server);
                 requestChannels(server);
                 setActiveServer(server.id);
+                document.getElementById("userButton").textContent = server.username;
+                document.getElementById("sessionToken").textContent = server.sessionToken;
+
             }
             break;
+
+        case "invalidInput":
+            if (msg.Status === "message") {
+                showErrorDialog(
+                    "Server",
+                    "Your message could not be sent.\n It is probably empty or too long."
+                );
+            }
+            break;
+
 
         case "channelList":
             server.channels.clear();
@@ -277,6 +377,8 @@ function switchChannel(server, channel) {
         SessionToken: server.sessionToken
     }));
 
+    newMessagesBtn.classList.add("hidden");
+    userNearBottom = true;
 
 
     renderMessages(server);
@@ -293,12 +395,27 @@ function renderMessages(server) {
     (server.channels.get(server.activeChannel) || []).forEach(appendMessage);
 }
 
+const MAX_MESSAGES = 500;
+
 function appendMessage(msg) {
     const div = document.createElement("div");
     div.innerHTML = `<b>${msg.Username}:</b> ${msg.Value}`;
     messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    while (messagesDiv.children.length > MAX_MESSAGES) {
+        messagesDiv.removeChild(messagesDiv.firstChild);
+    }
+
+    if (userNearBottom) {
+        requestAnimationFrame(() => {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    } else {
+        newMessagesBtn.classList.remove("hidden");
+    }
 }
+
+
 
 function clearChat() {
     messagesDiv.innerHTML = "";

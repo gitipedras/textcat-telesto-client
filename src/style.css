@@ -107,6 +107,7 @@ body {
 .channel-link.active {
   background: var(--accent);
   color: var(--text-inverse);
+  border-radius:5px;
 }
 
 /* CHAT */

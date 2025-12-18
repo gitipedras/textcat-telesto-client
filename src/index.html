@@ -57,14 +57,20 @@
 
 </div>
 
-<!-- ERROR DIALOG -->
-<div id="errorModal" class="modal hidden">
-    <div class="modal-content error-modal">
-        <h3 id="errorTitle">Error</h3>
-        <p id="errorMessage"></p>
-        <button id="errorCloseBtn">OK</button>
+<!-- GLOBAL DIALOG -->
+<div id="globalDialog" class="modal hidden dialog-overlay">
+    <div class="modal-content dialog-box" id="dialogBox">
+        <div class="dialog-header">
+            <span id="dialogIcon" class="dialog-icon"></span>
+            <h3 id="dialogTitle">Title</h3>
+        </div>
+
+        <p id="dialogMessage"></p>
+
+        <button id="dialogCloseBtn">OK</button>
     </div>
 </div>
+
 
 
 

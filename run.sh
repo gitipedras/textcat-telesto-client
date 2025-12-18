@@ -1,1 +1,1 @@
-npm run run
+npx electron . --disable-updates

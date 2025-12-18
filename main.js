@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const { checkForUpdates } = require("./updater/updater");
-
+const disableUpdates = process.argv.includes("--disable-updates");
 
 
 function showMenu() {
@@ -85,7 +85,15 @@ function createWindow() {
 --------------------------*/
 
 app.whenReady().then(async () => {
-    await checkForUpdates(); // MUST be before createWindow()
+    if (disableUpdates) {
+        console.log("[Updater] Disabled via --disable-updates");
+    } else {
+        try {
+            await checkForUpdates();
+        } catch (err) {
+            console.error("[Updater] Failed:", err);
+        }
+    }
     createWindow();
 
     app.on('activate', () => {

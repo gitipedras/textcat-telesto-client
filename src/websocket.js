@@ -8,10 +8,10 @@ let userNearBottom = true;
 const SCROLL_THRESHOLD = 80; // px
 
 
+let audioUnlocked = false;
+
 const servers = new Map();
 let activeServerId = null;
-
-let audioUnlocked = false;
 
 function unlockAudio() {
     if (audioUnlocked) return;
@@ -40,6 +40,7 @@ document.addEventListener("keydown", unlockAudio, { once: true });
    DOM
 ====================== */
 
+const addServerBtn = document.getElementById("addServerBtn");
 const serverBar = document.getElementById("serverBar");
 const channelList = document.getElementById("channelList");
 const messagesDiv = document.getElementById("messages");
@@ -70,26 +71,50 @@ if (userNearBottom) {
 }
 
 
-
-
 /* ======================
-   ERROR DIALOG
+   GLOBAL DIALOG
 ====================== */
 
-const errorModal = document.getElementById("errorModal");
-const errorTitle = document.getElementById("errorTitle");
-const errorMessage = document.getElementById("errorMessage");
-const errorCloseBtn = document.getElementById("errorCloseBtn");
+const globalDialog = document.getElementById("globalDialog");
+const dialogBox = document.getElementById("dialogBox");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogMessage = document.getElementById("dialogMessage");
+const dialogCloseBtn = document.getElementById("dialogCloseBtn");
+const dialogIcon = document.getElementById("dialogIcon");
 
-errorCloseBtn.onclick = () => {
-    errorModal.classList.add("hidden");
-};
+dialogCloseBtn.onclick = closeDialog;
 
-function showErrorDialog(title, message) {
-    errorTitle.textContent = title;
-    errorMessage.textContent = message;
-    errorModal.classList.remove("hidden");
+function closeDialog() {
+    globalDialog.classList.add("hidden");
 }
+
+/**
+ * Show a global dialog
+ * @param {"error"|"info"} type
+ * @param {string} title
+ * @param {string} message
+ */
+function showDialog(type, title, message) {
+    // Reset classes
+    dialogBox.classList.remove("dialog-error", "dialog-info");
+
+    // Apply type
+    if (type === "error") {
+        dialogBox.classList.add("dialog-error");
+        dialogIcon.innerHTML = `<i class="bi bi-x-circle-fill"></i>`;
+    } else {
+        dialogBox.classList.add("dialog-info");
+        dialogIcon.innerHTML = `<i class="bi bi-info-circle-fill"></i>`;
+    }
+
+    dialogTitle.textContent = title;
+    dialogMessage.textContent = message;
+
+    // Force on top of EVERYTHING
+    globalDialog.classList.remove("hidden");
+    globalDialog.style.zIndex = 999999;
+}
+
 
 
 /* ======================
@@ -166,7 +191,12 @@ registerServerBtn.onclick = () => {
     const password = serverToken.value;
 
     if (!address || !username || !password) {
-        alert("Address, username, and password are required");
+        showDialog(
+            "error",
+            "Invalid Input",
+            "Username, password or address are missing"
+        );
+
         return;
     }
 
@@ -185,13 +215,21 @@ registerServerBtn.onclick = () => {
 
     ws.onmessage = e => {
         console.log("Register response:", e.data);
-        alert("Registered! You can now connect.");
+        showDialog(
+            "info",
+            "Registered!",
+            "Account created, you may login now."
+        );
         ws.close();
     };
 
     ws.onerror = err => {
         console.error("Register failed:", err);
-        alert("Register failed \n Check address, internet connection \n or check developer console (toolbar)");
+        showDialog(
+            "error",
+            "Failed to register",
+            "Username cannot contain spaces! \n <b>TIP</b>: Check ur internet connection and server port"
+        );
     };
 };
 
@@ -233,7 +271,7 @@ function createServer(address, username, token) {
 
 
     ws.onclose = () => {
-        server.icon.style.backgroundColor = "red"; // visually mark disconnected
+        server.icon.style.backgroundColor = "#5865f2"; // visually mark disconnected
         appendMessage({ Username: "System", Value: `Server ${server.name} disconnected.` });
     };
 
@@ -489,7 +527,7 @@ document.getElementById("disconnectServer").onclick = () => {
     const server = servers.get(rightClickedServerId);
     if (!server) return;
     server.socket.close();
-    server.icon.style.backgroundColor = "red"; // show disconnected
+    server.icon.style.backgroundColor = "#5865f2"; // show disconnected
     serverContextMenu.style.display = "none";
 };
 
@@ -545,6 +583,7 @@ document.getElementById("removeServer").onclick = () => {
     }
 
     serverContextMenu.style.display = "none";
+    saveServers() // save the server list AGAIN
 };
 
 

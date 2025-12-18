@@ -9,6 +9,19 @@
   --border-subtle: #1a1b1e;
 }
 
+body {
+  font-family: "palatino linotype", palatino, serif;
+  font-size: 15px;
+  color: #000000;
+  font-style: normal;
+  font-weight: bold;
+  font-variant: normal;
+  text-align: left;
+  letter-spacing: 0px;
+  line-height: 20px;
+}
+
+
 html, body {
   height: 100%;
   overflow: hidden;
@@ -16,7 +29,6 @@ html, body {
 
 body {
   margin: 0;
-  font-family: sans-serif;
   background: var(--bg-main);
   color: var(--text-normal);
 }
@@ -374,31 +386,96 @@ input:focus {
 }
 
 /* ======================
-   ERROR MODAL
+   GLOBAL DIALOG
 ====================== */
 
-.error-modal {
-  border: 1px solid #7f1d1d;
+.dialog-overlay {
+  z-index: 999999; /* ABOVE EVERYTHING */
 }
 
-.error-modal h3 {
-  margin: 0;
+.dialog-box {
+  min-width: 320px;
+  max-width: 420px;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Header */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dialog-icon {
+  font-size: 22px;
+}
+
+/* Message */
+#dialogMessage {
+  font-size: 14px;
+  color: var(--text-normal);
+  line-height: 1.4;
+}
+
+/* Button */
+#dialogCloseBtn {
+  align-self: flex-end;
+  min-width: 80px;
+}
+
+/* ======================
+   DIALOG TYPES
+====================== */
+
+/* ERROR */
+.dialog-error {
+  border-color: #7f1d1d;
+}
+
+.dialog-error .dialog-icon {
   color: #f87171;
 }
 
-.error-modal p {
-  color: var(--text-normal);
-  font-size: 14px;
+.dialog-error #dialogTitle {
+  color: #f87171;
 }
 
-#errorCloseBtn {
+.dialog-error #dialogCloseBtn {
   background: #7f1d1d;
   border: none;
   color: white;
 }
 
-#errorCloseBtn:hover {
+.dialog-error #dialogCloseBtn:hover {
   background: #991b1b;
+}
+
+/* INFO */
+.dialog-info {
+  border-color: var(--accent);
+}
+
+.dialog-info .dialog-icon {
+  color: var(--accent);
+}
+
+.dialog-info #dialogTitle {
+  color: var(--accent);
+}
+
+.dialog-info #dialogCloseBtn {
+  background: var(--accent);
+  border: none;
+  color: white;
+}
+
+.dialog-info #dialogCloseBtn:hover {
+  background: #4752c4;
 }
 
 /* NEW MESSAGES INDICATOR */

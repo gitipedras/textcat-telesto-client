@@ -1,5 +1,7 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const { checkForUpdates } = require("./updater/updater");
+
 
 
 function showMenu() {
@@ -82,7 +84,8 @@ function createWindow() {
          APP LOGIC
 --------------------------*/
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    await checkForUpdates(); // MUST be before createWindow()
     createWindow();
 
     app.on('activate', () => {

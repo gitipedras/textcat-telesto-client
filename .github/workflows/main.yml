@@ -1,4 +1,6 @@
 name: Build Electron App
+permissions:
+	contents: read
 
 on:
   push:

@@ -330,13 +330,7 @@ function handleServerMessage(server, msg) {
             renderChannels(server);
             break; // <-- important to prevent fall-through
 
-        case "messageCache":
-            if (msg.MsgCache) {
-                for (const [user, text] of Object.entries(msg.MsgCache)) {
-                    appendMessage({ Username: user, Value: text });
-                }
-            }
-            break;
+
 
         case "NewMessage": {
             // resolve channel id robustly
@@ -347,9 +341,10 @@ function handleServerMessage(server, msg) {
             const msgWithChannel = { ...msg, ChannelID: safeChannelId };
 
             // ensure channel exists and store message
-            if (!server.channels.has(safeChannelId)) server.channels.set(safeChannelId, []);
+            /**if (!server.channels.has(safeChannelId)) server.channels.set(safeChannelId, []);
             server.channels.get(safeChannelId).push(msgWithChannel);
-
+            **/
+           
             // If the message is for the currently-viewed server+channel, show it in the chat
             if (server.id === activeServerId && safeChannelId === server.activeChannel) {
                 appendMessage(msgWithChannel);

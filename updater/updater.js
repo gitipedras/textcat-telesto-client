@@ -1,10 +1,14 @@
+// updater/updater.js (MAIN PROCESS)
+
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { app } = require("electron");
+const { app, ipcMain } = require("electron");
 
 const { fetchRemoteSrcFiles } = require("./github");
 const { readLocalHash, saveLocalHash } = require("./storage");
+
+let updateInfo = null;
 
 function hashFiles(files) {
     const hash = crypto.createHash("sha256");
@@ -16,63 +20,78 @@ function hashFiles(files) {
 
 function readLocalSrcFiles(srcPath) {
     const files = {};
+    if (!fs.existsSync(srcPath)) return files;
+
     for (const file of fs.readdirSync(srcPath)) {
         const full = path.join(srcPath, file);
         if (fs.statSync(full).isFile()) {
-            files["telesto-updater/" + file] = fs.readFileSync(full);
+            files[file] = fs.readFileSync(full);
         }
     }
     return files;
 }
 
 async function checkForUpdates() {
+    console.log("[Updater] Checking for updates…");
 
     const appPath = app.getAppPath();
-    const srcPath = path.join(appPath, "telesto-updater/");
+    const srcPath = path.join(appPath, "telesto-updater");
 
-    try {
-        if (!fs.existsSync(srcPath)) {
-            fs.mkdirSync(srcPath);
-        }
-    } catch (err) {
-        console.error(err);
+    if (!fs.existsSync(srcPath)) {
+        fs.mkdirSync(srcPath, { recursive: true });
     }
 
+    const localFiles = readLocalSrcFiles(srcPath);
+    const localHash = hashFiles(localFiles);
+    const savedHash = readLocalHash();
 
-    try {
-        console.log("[Updater] Checking for updates…");
+    const remoteFiles = await fetchRemoteSrcFiles();
+    const remoteHash = hashFiles(remoteFiles);
 
-
-        const localFiles = readLocalSrcFiles(srcPath);
-        const localHash = hashFiles(localFiles);
-        const savedHash = readLocalHash();
-
-        const remoteFiles = await fetchRemoteSrcFiles();
-        const remoteHash = hashFiles(remoteFiles);
-
-        if (savedHash === remoteHash) {
-            console.log("[Updater] Client is up to date");
-            return;
-        }
-
-        console.log("[Updater] Update found, applying…");
-
-        // overwrite src/*
-        for (const [file, data] of Object.entries(remoteFiles)) {
-            const dest = path.join(appPath, file);
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.writeFileSync(dest, data);
-        }
-
-        saveLocalHash(remoteHash);
-
-        console.log("[Updater] Update complete, restarting…");
-        app.relaunch();
-        app.exit(0);
-
-    } catch (err) {
-        console.error("[Updater] Update failed:", err);
+    if (savedHash === remoteHash) {
+        console.log("[Updater] Client is up to date");
+        return null;
     }
+
+    updateInfo = {
+        hash: remoteHash,
+        files: remoteFiles
+    };
+
+    return updateInfo;
 }
 
-module.exports = { checkForUpdates };
+async function applyUpdate() {
+    if (!updateInfo) return;
+
+    const appPath = app.getAppPath();
+
+    console.log("[Updater] Applying update…");
+
+    for (const [file, data] of Object.entries(updateInfo.files)) {
+        const dest = path.join(appPath, file);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.writeFileSync(dest, data);
+    }
+
+    saveLocalHash(updateInfo.hash);
+
+    console.log("[Updater] Update complete, restarting…");
+    app.relaunch();
+    app.exit(0);
+}
+
+function registerUpdaterIpc() {
+    ipcMain.handle("updater:getInfo", () => {
+        return updateInfo ? { available: true } : null;
+    });
+
+    ipcMain.handle("updater:start", async () => {
+        await applyUpdate();
+    });
+}
+
+module.exports = {
+    checkForUpdates,
+    registerUpdaterIpc
+};

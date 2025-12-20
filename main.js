@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const { checkForUpdates } = require("./updater/updater");
 const disableUpdates = process.argv.includes("--disable-updates");
+const { registerUpdaterIpc } = require("./updater/updater");
 
 
 function showMenu() {
@@ -85,24 +86,68 @@ function createWindow() {
 --------------------------*/
 
 app.whenReady().then(async () => {
+    registerUpdaterIpc(); // MUST be registered before any renderer loads
+
+    let updateInfo = null;
+
     if (disableUpdates) {
         console.log("[Updater] Disabled via --disable-updates");
     } else {
         try {
-            await checkForUpdates();
+            updateInfo = await checkForUpdates();
+            if (updateInfo) {
+                console.log("[Updater] Update available:", updateInfo.version);
+            }
         } catch (err) {
             console.error("[Updater] Failed:", err);
         }
     }
-    createWindow();
 
-    app.on('activate', () => {
+    const mainWin = createWindow();
+
+    // Show updater window ONLY if update exists
+    if (!disableUpdates && updateInfo) {
+        createUpdaterWindow();
+    }
+
+    app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
         }
     });
 });
 
+
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
+
+let updaterWin = null;
+
+function createUpdaterWindow() {
+    if (updaterWin) return updaterWin;
+
+    updaterWin = new BrowserWindow({
+        width: 480,
+        height: 320,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        title: "Update Available",
+        modal: true,
+        parent: win, // main window
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+
+    updaterWin.loadFile("src/updater.html");
+
+    updaterWin.on("closed", () => {
+        updaterWin = null;
+    });
+
+    return updaterWin;
+}

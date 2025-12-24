@@ -20,8 +20,8 @@ The SUID sandbox helper binary was found, but is not configured correctly. Rathe
 ```
 <br>
 you need to run: <br>
-`npm run patch` (for run.sh) <br>
-`./linux-patch.sh` (for running the built binary in dist/linux-unpacked) <br>
+- `npm run patch` (for run.sh) <br>
+- `./linux-patch.sh` (for running the built binary in dist/linux-unpacked)  <br>
 
 ### Versioning System
 `MAJOR.MINOR.PATCH`

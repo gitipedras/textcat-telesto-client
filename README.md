@@ -4,7 +4,7 @@ Named after the Saturn moon '[Telesto](https://en.wikipedia.org/wiki/Telesto_(mo
 
 <br>
 
-[![Build Electron App](https://github.com/gitipedras/textcat-telesto-client/actions/workflows/main.yml/badge.svg)](https://github.com/gitipedras/textcat-telesto-client/actions/workflows/main.yml) <br>
+[![Build Electron App](https://github.com/zion8992/textcat-telesto-client/actions/workflows/main.yml/badge.svg)](https://github.com/zion8992/textcat-telesto-client/actions/workflows/main.yml) <br>
 
 ### Building from source
 Install electron (for running from source)<br>
